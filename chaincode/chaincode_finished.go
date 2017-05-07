@@ -120,8 +120,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	// Handle different functions
 	if function == "read" { //read a variable
 		return t.read(stub, args)
-	} /*else if function == "searchLogBog" {
-		return t.searchSKATEmployee(stub,args)
+	} else if function == "getApprovalStatus" {
+		return t.getApprovalStatus(stub,args)
 	}/*else if function == "searchLogBog" {
 		return t.searchSKATEmployee(stub,args)
 	}*/
@@ -312,7 +312,7 @@ func (t *SimpleChaincode) addNewAppliedDegree(stub shim.ChaincodeStubInterface, 
 	if err != nil {
 		return nil, errors.New("CompletedInstituteID must be a numeric string")
 	}
-	NewApliedDegree,err = t.getApprovalStatus(stub,NewApliedDegree);
+	NewApliedDegree,err = t.setApprovalStatus(stub,NewApliedDegree);
 	if err != nil {
 		jsonResp = "{\"Error\":\"Failed to set Approval " + "\"}"
 		return nil, errors.New(jsonResp)
@@ -362,7 +362,7 @@ repositoryJsonAsBytes, err := stub.GetState(key)
 //Get Approval Status
 //===================================================================================================================================
 
-func (t *SimpleChaincode) getApprovalStatus(stub shim.ChaincodeStubInterface,  newAppliedDegree AppliedDegree) (AppliedDegree, error){
+func (t *SimpleChaincode) setApprovalStatus(stub shim.ChaincodeStubInterface,  newAppliedDegree AppliedDegree) (AppliedDegree, error){
 
 var key,preRequisiteDegree,jsonResp string 
 var preRequisiteInstituteID int
@@ -401,5 +401,49 @@ repositoryJsonAsBytes, err := stub.GetState(key)
 		}
 	
 	return newAppliedDegree, nil
+}
+
+//==================================================================================================================================
+//Get Approval Status
+//===================================================================================================================================
+
+func (t *SimpleChaincode) getApprovalStatus(stub shim.ChaincodeStubInterface,  args []string) ([]byte, error){
+
+var key,jsonResp string 
+var loanApproved bool
+var approvedDegree AppliedDegree
+key=args[0]+"_2"
+repositoryJsonAsBytes, err := stub.GetState(key)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + "CompletedDegreesRepository" + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+	var appliedDegreesRepository AppliedDegreesRepository
+	json.Unmarshal(repositoryJsonAsBytes, &appliedDegreesRepository)	
+
+	for _,degree := range appliedDegreesRepository.AppliedDegrees{
+		fmt.Println("degree.Approved:"+ strconv.Itoa(degree.Approved))
+		approvedDegree=degree
+		if(degree.Approved==0){
+			loanApproved=false;	
+		}else{
+			loanApproved= true;
+			break;
+		}
+	}
+	
+	if(loanApproved == true){
+		fmt.Println("Loan Approved")
+			jsonAsBytes, _ := json.Marshal(approvedDegree)
+
+			if err != nil {
+			return jsonAsBytes, err
+			}
+			return jsonAsBytes, nil
+		}else{
+		fmt.Println("Loan Not Approved")
+		}
+	
+	return nil, nil
 }
 	
