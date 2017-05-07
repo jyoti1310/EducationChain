@@ -48,19 +48,22 @@ type StudentInformation struct{
         DOB string `json:"DOB"`
 }
 
-type AppliedDegreeRequests struct{
+type AppliedDegree struct{
 		GovtID string `json:"GovtID"`
-        AppliedInstituteID int `json:"InstituteID"`
-        DegreeID int `json:"DegreeID"`
+        AppliedInstituteID int `json:"AppliedInstituteID"`
         DegreeName string `json:"DegreeName"`
 		PreRequisiteDegree string `json:"PreRequisiteDegree"`
-		CompletedInstituteID int `json:"InstituteID"`
-        Approved int `json:"Percentage"`
+		CompletedInstituteID int `json:"CompletedInstituteID"`
+        Approved int `json:"Approved"`
 }
 
 //var employeeLogBog map[string]SKATEmployee
 type CompletedDegreesRepository struct {
 	CompletedDegrees []DegreesCompleted `json:"CompletedDegrees"`
+}
+
+type AppliedDegreesRepository struct {
+	AppliedDegrees []AppliedDegree `json:"AppliedDegrees"`
 }
 /*type SKATEmployeeRepository struct{
 	EmployeeList []SKATEmployee `json:"employee_list"`
@@ -170,17 +173,18 @@ func (t *SimpleChaincode) read(stub shim.ChaincodeStubInterface, args []string) 
 // ============================================================================================================================
 func (t *SimpleChaincode) addNewCompletedDegree(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var err error
-	var key string
+	var key,jsonResp string
 	//,jsonResp string
 	
 	//   0       1       2     3
 	// "asdf", "blue", "35", "bob"
-	if len(args) != 8 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 7")
+	if len(args) != 9 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 9")
 	}
-
-	//input sanitation
-	fmt.Println("- start adding new Degree")
+	fmt.Println("- adding new Degree")
+	fmt.Println("Govvt.ID-"+args[0])
+	
+	
 	/*if len(args[0]) <= 0 {
 		return nil, errors.New("1st argument must be a non-empty string")
 	}
@@ -231,9 +235,21 @@ func (t *SimpleChaincode) addNewCompletedDegree(stub shim.ChaincodeStubInterface
 	if err != nil {
 		return jsonAsBytes, err
 	}
+	//Added for test purpose
+	err = stub.PutState(NewDegreeCompleted.GovtID, jsonAsBytes)	//store employee with id as key
 	
-	key = NewDegreeCompleted.GovtID + "_2"
-	t.appendtoCompletedDegreeRepository(stub,key,NewDegreeCompleted)
+	if err != nil {	
+		jsonResp = "{\"Error\":\"Failed to Add new Degree against GovtID" + "\"}"
+		return jsonAsBytes, errors.New(jsonResp)
+	}	
+	//Adding new Degree to Repository
+	key = NewDegreeCompleted.GovtID + "_1"
+	fmt.Println("Calling appendtoCompletedDegreeRepository");
+	_, err = t.appendtoCompletedDegreeRepository(stub,key,NewDegreeCompleted)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to CompletedDegreeRepository Repository" + "\"}"
+		return nil, errors.New(jsonResp)
+	}
 	fmt.Println("- end add Degree 2")
 	return jsonAsBytes, nil
 }
@@ -257,10 +273,64 @@ repositoryJsonAsBytes, err := stub.GetState(key)
 	//update Employee Repository
 	updatedRepositoryJsonAsBytes, _  := json.Marshal(degreeRepository)
 	err = stub.PutState(key, updatedRepositoryJsonAsBytes)	//store employee with id as key
-	if err != nil {
-		return false, err
+	
+	if err != nil {	
+		jsonResp = "{\"Error\":\"Failed to init new Degree " + "\"}"
+		return false, errors.New(jsonResp)
 	}		
 	return true, nil
+}
+
+// ============================================================================================================================
+// Init Employee - create a new Employee, store into chaincode state
+// ============================================================================================================================
+func (t *SimpleChaincode) addNewAppliedDegree(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var err error
+	var jsonResp string
+	
+	//   0       1       2     3
+	// "asdf", "blue", "35", "bob"
+	if len(args) != 5 {
+		return nil, errors.New("Incorrect number of arguments. Expecting 5")
+	}
+	fmt.Println("- adding new Applied Degree")
+	fmt.Println("Govvt.ID-"+args[0])
+	
+	NewApliedDegree := AppliedDegree{}
+	NewApliedDegree.GovtID = args[0]
+	
+	NewApliedDegree.AppliedInstituteID, err =strconv.Atoi(args[1])
+	
+	if err != nil {
+		return nil, errors.New("AppliedInstituteID must be a numeric string")
+	}
+	NewApliedDegree.DegreeName=args[2]
+	
+	NewApliedDegree.DegreeName=args[3]
+	NewApliedDegree.PreRequisiteDegree=args[4]
+	NewApliedDegree.CompletedInstituteID, err=strconv.Atoi(args[5])
+	
+	if err != nil {
+		return nil, errors.New("CompletedInstituteID must be a numeric string")
+	}
+	jsonAsBytes, _ := json.Marshal(NewApliedDegree)
+	/*if len(args) == 6 {
+	Employee.Comment = args[5]
+  	}*/
+	/*fmt.Println("adding Degree @ " + NewDegreeCompleted.GovtID + ", " + strconv.Itoa(NewDegreeCompleted.InstituteID));
+	fmt.Println("- end add Degree 1")
+	jsonAsBytes, _ := json.Marshal(NewDegreeCompleted)
+*/
+	//Added for test purpose
+	err = stub.PutState(NewApliedDegree.GovtID+"_2", jsonAsBytes)	//store employee with id as key
+	
+	if err != nil {	
+		jsonResp = "{\"Error\":\"Failed to Add new Degree against GovtID" + "\"}"
+		return jsonAsBytes, errors.New(jsonResp)
+	}	
+	
+	fmt.Println("- end add Degree 2")
+	return jsonAsBytes, nil
 }
 
 
