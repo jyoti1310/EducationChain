@@ -105,9 +105,9 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.write(stub, args)
 	} else if  function == "addToDegreesCompleted" {
 		return t.addNewCompletedDegree(stub, args)
-	} /*else if  function == "updateLogBog" {
-		return t.updateSKATEmployee(stub, args)
-	}*/
+	} else if  function == "addAppliedDegree" {
+		return t.addNewAppliedDegree(stub, args)
+	}
 	fmt.Println("invoke did not find func: " + function)
 
 	return nil, errors.New("Received unknown function invocation: " + function)
@@ -255,7 +255,7 @@ func (t *SimpleChaincode) addNewCompletedDegree(stub shim.ChaincodeStubInterface
 }
 
 //==================================================================================================================================
-//Append to EmployeeRepository
+//Append to Completed Degree Repository
 //===================================================================================================================================
 
 func (t *SimpleChaincode) appendtoCompletedDegreeRepository(stub shim.ChaincodeStubInterface,  key string,newDegree DegreesCompleted) (bool, error){
@@ -286,7 +286,7 @@ repositoryJsonAsBytes, err := stub.GetState(key)
 // ============================================================================================================================
 func (t *SimpleChaincode) addNewAppliedDegree(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var err error
-	var jsonResp string
+	var key,jsonResp string
 	
 	//   0       1       2     3
 	// "asdf", "blue", "35", "bob"
@@ -306,32 +306,96 @@ func (t *SimpleChaincode) addNewAppliedDegree(stub shim.ChaincodeStubInterface, 
 	}
 	NewApliedDegree.DegreeName=args[2]
 	
-	NewApliedDegree.DegreeName=args[3]
-	NewApliedDegree.PreRequisiteDegree=args[4]
-	NewApliedDegree.CompletedInstituteID, err=strconv.Atoi(args[5])
+	NewApliedDegree.PreRequisiteDegree=args[3]
+	NewApliedDegree.CompletedInstituteID, err=strconv.Atoi(args[4])
 	
 	if err != nil {
 		return nil, errors.New("CompletedInstituteID must be a numeric string")
 	}
+	NewApliedDegree,err = t.getApprovalStatus(stub,NewApliedDegree);
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to set Approval " + "\"}"
+		return nil, errors.New(jsonResp)
+	}
+
 	jsonAsBytes, _ := json.Marshal(NewApliedDegree)
-	/*if len(args) == 6 {
-	Employee.Comment = args[5]
-  	}*/
-	/*fmt.Println("adding Degree @ " + NewDegreeCompleted.GovtID + ", " + strconv.Itoa(NewDegreeCompleted.InstituteID));
-	fmt.Println("- end add Degree 1")
-	jsonAsBytes, _ := json.Marshal(NewDegreeCompleted)
-*/
-	//Added for test purpose
-	err = stub.PutState(NewApliedDegree.GovtID+"_2", jsonAsBytes)	//store employee with id as key
-	
-	if err != nil {	
-		jsonResp = "{\"Error\":\"Failed to Add new Degree against GovtID" + "\"}"
-		return jsonAsBytes, errors.New(jsonResp)
-	}	
-	
+	//Adding new Degree to Repository
+	key = NewApliedDegree.GovtID + "_2"
+	fmt.Println("Calling appendtoAppliedDegreeRepository");
+	_, err = t.appendtoAppliedDegreeRepository(stub,key,NewApliedDegree)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to append to  CompletedppliedDegreeRepository" + "\"}"
+		return nil, errors.New(jsonResp)
+	}
 	fmt.Println("- end add Degree 2")
 	return jsonAsBytes, nil
 }
 
+//==================================================================================================================================
+//Append to Completed Degree Repository
+//===================================================================================================================================
 
+func (t *SimpleChaincode) appendtoAppliedDegreeRepository(stub shim.ChaincodeStubInterface,  key string,newDegree AppliedDegree) (bool, error){
+
+var jsonResp string 
+repositoryJsonAsBytes, err := stub.GetState(key)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + "AppliedDegreesRepository" + "\"}"
+		return false, errors.New(jsonResp)
+	}
+	var applieddegreeRepository AppliedDegreesRepository
+	json.Unmarshal(repositoryJsonAsBytes, &applieddegreeRepository)	
+
+	applieddegreeRepository.AppliedDegrees = append(applieddegreeRepository.AppliedDegrees,newDegree)
+	//update Employee Repository
+	updatedRepositoryJsonAsBytes, _  := json.Marshal(applieddegreeRepository)
+	err = stub.PutState(key, updatedRepositoryJsonAsBytes)	//store employee with id as key
+	
+	if err != nil {	
+		jsonResp = "{\"Error\":\"Failed to init applied Degree " + "\"}"
+		return false, errors.New(jsonResp)
+	}		
+	return true, nil
+}
+
+//==================================================================================================================================
+//Get Approval Status
+//===================================================================================================================================
+
+func (t *SimpleChaincode) getApprovalStatus(stub shim.ChaincodeStubInterface,  newAppliedDegree AppliedDegree) (AppliedDegree, error){
+
+var key,preRequisiteDegree,jsonResp string 
+var preRequisiteInstituteID int
+var foundDegree bool
+key=newAppliedDegree.GovtID+"_1"
+repositoryJsonAsBytes, err := stub.GetState(key)
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for " + "CompletedDegreesRepository" + "\"}"
+		return newAppliedDegree, errors.New(jsonResp)
+	}
+	var completedDegreesRepository CompletedDegreesRepository
+	json.Unmarshal(repositoryJsonAsBytes, &completedDegreesRepository)	
+
+	for _,degree := range completedDegreesRepository.CompletedDegrees{
+		foundDegree = false
+		preRequisiteInstituteID = newAppliedDegree.CompletedInstituteID
+		preRequisiteDegree= newAppliedDegree.PreRequisiteDegree
+		fmt.Println("matching record")
+		if (degree.DegreeName == preRequisiteDegree && degree.InstituteID == preRequisiteInstituteID ){
+				foundDegree=true
+				fmt.Println("found both")
+				break;
+			}
+		}
+	
+	if(foundDegree == true){
+		newAppliedDegree.Approved =1
+		fmt.Println("Approved")
+		}else{
+		newAppliedDegree.Approved =0
+		fmt.Println("Not Approved")
+		}
+	
+	return newAppliedDegree, nil
+}
 	
