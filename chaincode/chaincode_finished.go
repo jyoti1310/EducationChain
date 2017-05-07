@@ -381,6 +381,10 @@ repositoryJsonAsBytes, err := stub.GetState(key)
 		preRequisiteInstituteID = newAppliedDegree.CompletedInstituteID
 		preRequisiteDegree= newAppliedDegree.PreRequisiteDegree
 		fmt.Println("matching record")
+		fmt.Println("degree.DegreeName:"+degree.DegreeName);
+		fmt.Println("preRequisiteDegree:"+preRequisiteDegree);
+		fmt.Println("degree.InstituteID:"+ strconv.Itoa(degree.InstituteID));
+		fmt.Println("preRequisiteInstituteID:"+strconv.Itoa(preRequisiteInstituteID));
 		if (degree.DegreeName == preRequisiteDegree && degree.InstituteID == preRequisiteInstituteID ){
 				foundDegree=true
 				fmt.Println("found both")
